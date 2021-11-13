@@ -7,11 +7,14 @@
     "by-node-env": "^2.0.1",
     "deta": "^1.0.1",
     "dotenv": "^10.0.0",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "express-winston": "^4.2.0",
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "@types/express": "^4.17.13",
     "@types/node": "^16.11.7",
+    "@types/winston": "^2.4.4",
     "tslint": "^6.1.3",
     "typescript": "^4.4.4"
   },
@@ -19,19 +22,12 @@
     "start": "by-node-env",
     "start:development": "node .",
     "start:production": "node .",
-
     "build": "by-node-env",
     "build:development": "tsc",
     "build:production": "tsc",
-
-    "prebuild": "by-node-env",
-    "prebuild:development": "tslint -c tslint.json -p tsconfig.json --fix",
-    "prebuild:production": "",
-
-    "prestart": "by-node-env",
-    "prestart:development": "npm run build",
-    "prestart:production": "",
-    
+    "lint": "by-node-env",
+    "lint:development": "tslint -c tslint.json -p tsconfig.json --fix",
+    "lint:production": "",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
