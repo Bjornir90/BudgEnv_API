@@ -2,6 +2,7 @@ import express, { Router, json } from "express";
 import {Deta} from "deta";
 import dotenv from "dotenv";
 import Base from "deta/dist/types/base";
+import Logger from "./winston";
 
 dotenv.config();
 
@@ -12,7 +13,7 @@ if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BA
     dbBudget = deta.Base(process.env.DETA_BUDGET_BASE);
     dbTransaction = deta.Base(process.env.DETA_TRANSACTION_BASE);
 } else {
-
+    Logger.error("Databases not defined in environment");    
     process.exit(1);
 }
 
@@ -25,10 +26,16 @@ enum GoalType {
     SpendMonthly = "SPENDMONTHLY"
 }
 
+type Goal = {
+    amount: number;
+    date: string|undefined;
+    goalType: GoalType;
+}
+
 type Category = {
     amount: number;
     name: string;
-    goalType: GoalType;
+    goal: Goal;
 };
 
 type Budget = {
