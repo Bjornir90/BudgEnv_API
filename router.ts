@@ -42,14 +42,38 @@ type Budget = {
     categories: [Category];
 };
 
+type Transaction = {
+    date: string;
+    amount: number;
+    memo: string;
+    payee: string;
+};
+
 
 router.get("/budget", (req, res) => {
-    dbBudget.fetch();
+    dbBudget.fetch().then(value => {
+        res.status(200).json(value.items);
+    });
 });
 
-router.get("/transactions", (req, res) => {
-    const startDate: string = req.query.start_date as string;
-    const endDate: string = req.query.end_date as string;
+router.get("/transactions/:id", (req, res) => {
+    /*const startDate: string = req.query.start_date as string;
+    const endDate: string = req.query.end_date as string;*/
+    const id: string = req.params.id;
+
+    dbTransaction.get(id).then(value => {
+        res.status(200).json(value);
+    });
+});
+
+router.post("/transactions", (req, res) => {
+    let input = req.body as Transaction;
+    dbTransaction.put(input).then(value => {
+        res.status(201).json(value);
+    }, err => {
+        Logger.error("Error when putting transaction : "+err);
+        res.status(500).json('{"error":"Could not create transaction"}');
+    });
 });
 
 export default router;
