@@ -3,8 +3,12 @@ import {Deta} from "deta";
 import dotenv from "dotenv";
 import Base from "deta/dist/types/base";
 import Logger from "./winston";
+import reasons from "./error_reason";
 
 dotenv.config();
+
+const maxLengthCategoryName = 100;
+const defaultBudget = "DEFAULT";
 
 const deta = Deta(process.env.DETA_PROJECT_KEY);
 let dbBudget: Base;
@@ -13,7 +17,7 @@ if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BA
     dbBudget = deta.Base(process.env.DETA_BUDGET_BASE);
     dbTransaction = deta.Base(process.env.DETA_TRANSACTION_BASE);
 } else {
-    Logger.error("Databases not defined in environment");    
+    Logger.error("Databases not defined in environment");
     process.exit(1);
 }
 
@@ -28,33 +32,112 @@ enum GoalType {
 
 type Goal = {
     amount: number;
-    date: string|undefined;
+    date?: string;
     goalType: GoalType;
 }
 
 type Category = {
-    amount: number;
+    amount: number;// Amount of money present in the category (affected - spent)
     name: string;
-    goal: Goal;
+    goal?: Goal;
 };
 
 type Budget = {
     categories: [Category];
+    key: string;
 };
 
 type Transaction = {
     date: string;
-    amount: number;//Amount in cents
+    amount: number;// Amount in cents
     memo: string;
     payee: string;
-    key: string; //The id assigned by Deta base
+    categoryName: string;
+    key: string; // The id assigned by Deta base
 };
+
+type Affectation = {
+    categoryName: string;
+    amount: number;
+}
+
+type MonthlyAffectation = {
+    date: string;
+    affectation: Affectation;
+}
+
+type ValidationInfo = {
+    reason?: string;
+}
+
+type ErrorResponse = {
+    reason: string;
+    message: string;
+}
+
+function validateCategoryPost (category : Category): ValidationInfo {
+    if(category.name.length > maxLengthCategoryName) return {reason: reasons.categoryNameTooLong};
+    if(category.goal?.goalType === GoalType.SaveByDate && category.goal?.date === null) return {reason: reasons.missingDate};
+    return {reason: undefined};
+}
 
 
 router.get("/budgets", (req, res) => {
     dbBudget.fetch().then(value => {
         res.status(200).json(value.items);
     });
+});
+
+router.get("/budgets/default", (req, res) => {
+    dbBudget.get(defaultBudget).then(value => {
+        res.status(200).json(value);
+    }, err => {
+        res.status(500).json(err);
+    })
+});
+
+// TODO validation
+router.post("/budgets/default", (req, res) => {
+    dbBudget.put(req.body, defaultBudget).then(value => {
+        res.status(200).json(value);
+    }, err => {
+        res.status(500).json(err);
+    });
+});
+
+router.post("/categories", (req, res) => {
+    const category = req.body as Category;
+
+    const validInfo = validateCategoryPost(category);
+    if(validInfo.reason !== undefined){
+        const response: ErrorResponse = {reason: validInfo.reason, message: "Could not create new category"};
+        res.status(400).json(response);
+    }
+
+    dbBudget.get(defaultBudget).then(value => {
+
+        if(value === null || value === undefined){
+
+            const response: ErrorResponse = {reason: reasons.notFound, message: "The default budget could not be found"};
+            res.status(404).json(response);
+
+        } else {
+
+            const budget = (value as Budget);
+            const categories = budget.categories;
+            categories.push(category);
+            budget.categories = categories;
+
+            // The budget object has a key, which means it will replace the one in the base
+            dbBudget.put(budget).then(putResponse => {
+                res.status(201).json(putResponse);
+            }, err => {
+                res.status(500).json(err);
+            });
+        }
+
+    });
+
 });
 
 router.get("/transactions/:id", (req, res) => {
@@ -80,7 +163,7 @@ router.get("/transactions/range", (req, res) => {
     Transaction in the body
  */
 router.post("/transactions", (req, res) => {
-    let input = req.body as Transaction;
+    const input = req.body as Transaction;
 
     dbTransaction.put(input).then(value => {
         res.status(201).json(value);
