@@ -82,8 +82,6 @@ router.get("/transactions/range", (req, res) => {
 router.post("/transactions", (req, res) => {
     let input = req.body as Transaction;
 
-    Logger.debug("Putting new transaction : ", input);
-
     dbTransaction.put(input).then(value => {
         res.status(201).json(value);
     }, err => {
