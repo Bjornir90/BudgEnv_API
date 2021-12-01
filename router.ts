@@ -44,21 +44,20 @@ type Budget = {
 
 type Transaction = {
     date: string;
-    amount: number;
+    amount: number;//Amount in cents
     memo: string;
     payee: string;
+    key: string; //The id assigned by Deta base
 };
 
 
-router.get("/budget", (req, res) => {
+router.get("/budgets", (req, res) => {
     dbBudget.fetch().then(value => {
         res.status(200).json(value.items);
     });
 });
 
 router.get("/transactions/:id", (req, res) => {
-    /*const startDate: string = req.query.start_date as string;
-    const endDate: string = req.query.end_date as string;*/
     const id: string = req.params.id;
 
     dbTransaction.get(id).then(value => {
@@ -66,12 +65,29 @@ router.get("/transactions/:id", (req, res) => {
     });
 });
 
+router.get("/transactions/range", (req, res) => {
+
+    const startDate: string = req.query.start_date as string;
+    const endDate: string = req.query.end_date as string;
+
+    dbTransaction.fetch({"date?r": [startDate, endDate]}, {limit: 100}).then(value => {
+        res.status(200).json(value.items);
+    });
+});
+
+/*
+    Create a new transaction
+    Transaction in the body
+ */
 router.post("/transactions", (req, res) => {
     let input = req.body as Transaction;
+
+    Logger.debug("Putting new transaction : ", input);
+
     dbTransaction.put(input).then(value => {
         res.status(201).json(value);
     }, err => {
-        Logger.error("Error when putting transaction : "+err);
+        Logger.error("Error when creating transaction : "+err);
         res.status(500).json('{"error":"Could not create transaction"}');
     });
 });
