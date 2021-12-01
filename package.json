@@ -28,6 +28,7 @@
     "lint": "by-node-env",
     "lint:development": "tslint -c tslint.json -p tsconfig.json --fix",
     "lint:production": "",
+    "serve": "npm run lint && npm run build && npm run start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
