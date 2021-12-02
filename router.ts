@@ -13,9 +13,11 @@ const defaultBudget = "DEFAULT";
 const deta = Deta(process.env.DETA_PROJECT_KEY);
 let dbBudget: Base;
 let dbTransaction: Base;
-if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined){
+let dbAffectation: Base;
+if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined){
     dbBudget = deta.Base(process.env.DETA_BUDGET_BASE);
     dbTransaction = deta.Base(process.env.DETA_TRANSACTION_BASE);
+    dbAffectation = deta.Base(process.env.DETA_AFFECTATION_BASE);
 } else {
     Logger.error("Databases not defined in environment");
     process.exit(1);
