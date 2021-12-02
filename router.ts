@@ -132,6 +132,8 @@ router.use((req, res, next) => {
             next();
             return;
         } catch (err) {
+            Logger.error("Error while verifying token");
+            Logger.error(JSON.stringify(err));
             res.status(403).json(generateErrorResponse(reasons.invalidToken, "Token is not valid"));
             return;
         }

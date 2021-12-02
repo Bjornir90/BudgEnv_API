@@ -44,7 +44,7 @@ const levels = {
   const Logger: any = winston.createLogger({
     level: level(),
     levels,
-    format,
+    format: format(),
     transports,
   })
 
