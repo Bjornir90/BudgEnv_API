@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import Base from "deta/dist/types/base";
 import Logger from "./winston";
 import reasons from "./error_reason";
+import randomString from "randomstring";
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ type Category = {
     amount: number;// Amount of money present in the category (affected - spent)
     name: string;
     goal?: Goal;
+    id: string;//Not the id in base, used to reference this category in transactions and affectations
 };
 
 type Budget = {
@@ -54,12 +56,12 @@ type Transaction = {
     amount: number;// Amount in cents
     memo: string;
     payee: string;
-    categoryName: string;
+    categoryId: string;
     key: string; // The id assigned by Deta base
 };
 
 type Affectation = {
-    categoryName: string;
+    categoryId: string;
     amount: number;
 }
 
@@ -140,6 +142,10 @@ router.post("/categories", (req, res) => {
 
     });
 
+});
+
+router.post("/affectations", (req, res) => {
+    const affectation = req.body as Affectation;
 });
 
 router.get("/transactions/:id", (req, res) => {
