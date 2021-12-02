@@ -8,9 +8,9 @@ import randomString from "randomstring";
 
 dotenv.config();
 
-const maxLengthCategoryName = 100;
-const defaultBudget = "DEFAULT";
-const randomIdLength = 24;
+const MAX_LENGTH_CATEGORY_NAME = 100;
+const DEFAULT_BUDGET = "DEFAULT";
+const RANDOM_ID_LENGTH = 24;
 
 const deta = Deta(process.env.DETA_PROJECT_KEY);
 let dbBudget: Base;
@@ -44,7 +44,7 @@ type Category = {
     amount: number;// Amount of money present in the category (affected - spent)
     name: string;
     goal?: Goal;
-    id: string;//Not the id in base, used to reference this category in transactions and affectations
+    id: string;// Not the id in base, used to reference this category in transactions and affectations
 };
 
 type Budget = {
@@ -81,7 +81,7 @@ type ErrorResponse = {
 }
 
 function validateCategoryPost (category : Category): ValidationInfo {
-    if(category.name.length > maxLengthCategoryName) return {reason: reasons.categoryNameTooLong};
+    if(category.name.length > MAX_LENGTH_CATEGORY_NAME) return {reason: reasons.categoryNameTooLong};
     if(category.goal?.goalType === GoalType.SaveByDate && category.goal?.date === null) return {reason: reasons.missingDate};
     return {reason: undefined};
 }
@@ -94,7 +94,7 @@ router.get("/budgets", (req, res) => {
 });
 
 router.get("/budgets/default", (req, res) => {
-    dbBudget.get(defaultBudget).then(value => {
+    dbBudget.get(DEFAULT_BUDGET).then(value => {
         res.status(200).json(value);
     }, err => {
         res.status(500).json(err);
@@ -103,7 +103,7 @@ router.get("/budgets/default", (req, res) => {
 
 // TODO validation
 router.post("/budgets/default", (req, res) => {
-    dbBudget.put(req.body, defaultBudget).then(value => {
+    dbBudget.put(req.body, DEFAULT_BUDGET).then(value => {
         res.status(200).json(value);
     }, err => {
         res.status(500).json(err);
@@ -119,9 +119,9 @@ router.post("/categories", (req, res) => {
         res.status(400).json(response);
     }
 
-    category.id = randomString.generate(randomIdLength);
+    category.id = randomString.generate(RANDOM_ID_LENGTH);
 
-    dbBudget.get(defaultBudget).then(value => {
+    dbBudget.get(DEFAULT_BUDGET).then(value => {
 
         if(value === null || value === undefined){
 
