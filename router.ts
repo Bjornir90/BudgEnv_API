@@ -111,6 +111,16 @@ function generateErrorResponse(reason: string, message: string): ErrorResponse{
     return {reason, message};
 }
 
+function validateDayDate(date: string): boolean{
+    const pattern = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    return pattern.test(date);
+}
+
+function validateMonthDate(date: string): boolean{
+    const pattern = new RegExp('^[0-9]{4}-[0-9]{2}$');
+    return pattern.test(date);
+}
+
 router.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/json');
 
@@ -207,6 +217,21 @@ router.post("/categories", (req, res) => {
             });
         }
 
+    });
+
+});
+
+router.get("/affectations/month/:date", (req, res) => {
+    const date = req.params.date;
+    if(!validateMonthDate(date)){
+        res.status(400).json(generateErrorResponse(reasons.badDateFormat, "The date isn't formatted as YYYY-MM"));
+        return;
+    }
+
+    dbAffectation.fetch({date}).then(value => {
+        res.status(200).json(value.items);
+    }, err => {
+        res.status(404).json(err);
     });
 
 });
