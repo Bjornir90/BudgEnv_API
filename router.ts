@@ -86,6 +86,18 @@ function validateCategoryPost (category : Category): ValidationInfo {
     return {reason: undefined};
 }
 
+function putCategoryInBudget (category: Category, budget: Budget): Budget {
+    const categories = budget.categories;
+
+    const existingCategoryIndex = categories.findIndex(value => value.id === category.id);
+    if(existingCategoryIndex === -1){
+        categories.push(category);
+    } else {
+        categories.splice(existingCategoryIndex, 1, category);
+    }
+
+    return budget;
+}
 
 router.get("/budgets", (req, res) => {
     dbBudget.fetch().then(value => {
@@ -130,10 +142,8 @@ router.post("/categories", (req, res) => {
 
         } else {
 
-            const budget = (value as Budget);
-            const categories = budget.categories;
-            categories.push(category);
-            budget.categories = categories;
+            const budget = value as Budget;
+            putCategoryInBudget(category, budget)
 
             // The budget object has a key, which means it will replace the one in the base
             dbBudget.put(budget).then(putResponse => {
@@ -148,7 +158,30 @@ router.post("/categories", (req, res) => {
 });
 
 router.post("/affectations", (req, res) => {
-    const affectation = req.body as Affectation;
+    const monthlyAffectation = req.body as MonthlyAffectation;
+
+    dbBudget.get(DEFAULT_BUDGET).then(budgetValue => {
+        const budget = budgetValue as Budget;
+        const correspondingCategory = budget.categories.find(value => {
+            return value.id === monthlyAffectation.affectation.categoryId;
+        });
+
+        if(correspondingCategory === undefined){
+            const errorResponse: ErrorResponse = {reason: reasons.invalidCategory, message: "The category could not be found"};
+            res.status(400).json(errorResponse);
+        } else {
+            // Update the amount in the corresponding category
+            correspondingCategory.amount += monthlyAffectation.affectation.amount;
+            putCategoryInBudget(correspondingCategory, budget);
+            dbBudget.put(budget);
+
+            dbAffectation.put(monthlyAffectation).then(affectationValue => {
+                res.status(201).json(affectationValue);
+            }, err => {
+                res.status(500).json(err);
+            });
+        }
+    });
 });
 
 router.get("/transactions/:id", (req, res) => {
