@@ -30,9 +30,7 @@
     "build": "by-node-env",
     "build:development": "tsc",
     "build:production": "tsc",
-    "lint": "by-node-env",
-    "lint:development": "tslint -c tslint.json -p tsconfig.json --fix",
-    "lint:production": "",
+    "lint": "tslint -c tslint.json -p tsconfig.json --fix",
     "serve": "npm run lint && npm run build && npm run start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
