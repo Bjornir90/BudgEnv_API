@@ -10,6 +10,7 @@ dotenv.config();
 
 const maxLengthCategoryName = 100;
 const defaultBudget = "DEFAULT";
+const randomIdLength = 24;
 
 const deta = Deta(process.env.DETA_PROJECT_KEY);
 let dbBudget: Base;
@@ -117,6 +118,8 @@ router.post("/categories", (req, res) => {
         const response: ErrorResponse = {reason: validInfo.reason, message: "Could not create new category"};
         res.status(400).json(response);
     }
+
+    category.id = randomString.generate(randomIdLength);
 
     dbBudget.get(defaultBudget).then(value => {
 
