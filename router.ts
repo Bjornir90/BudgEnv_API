@@ -5,6 +5,7 @@ import Base from "deta/dist/types/base";
 import Logger from "./winston";
 import reasons from "./error_reason";
 import randomString from "randomstring";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 
@@ -24,6 +25,13 @@ if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BA
     Logger.error("Databases not defined in environment");
     process.exit(1);
 }
+
+
+if(process.env.API_SECRET === undefined){
+    Logger.error("Missing API secret in environment");
+    process.exit(1);
+}
+
 
 const router: Router = express.Router();
 
@@ -99,6 +107,51 @@ function putCategoryInBudget (category: Category, budget: Budget): Budget {
     return budget;
 }
 
+function generateErrorResponse(reason: string, message: string): ErrorResponse{
+    return {reason, message};
+}
+
+router.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json');
+
+    const authHeader = req.headers.authorization;
+
+    if(process.env.NODE_ENV === "development"){
+        next();
+        return;
+    }
+
+    if(req.path === "/token" || req.path === "/token/" || req.method === "OPTIONS"){// Accepts requests even without a token
+        next();
+        return;
+    }
+
+    if(authHeader){
+        try{
+            jwt.verify(authHeader.split(' ')[1], process.env.API_SECRET as string); // Presence of env variable checked at startup
+            next();
+            return;
+        } catch (err) {
+            res.status(403).json(generateErrorResponse(reasons.invalidToken, "Token is not valid"));
+            return;
+        }
+    }
+});
+
+router.post("/token", (req, res) => {
+    const pass = req.body.password;
+    const username = req.body.username;
+
+    if(username !== process.env.API_USERNAME || pass !== process.env.API_PASSWORD){
+        res.status(403).json(generateErrorResponse(reasons.invalidLogin, "Username or password is not valid"));
+        return;
+    }
+
+    const token = jwt.sign({'access': 'granted'}, process.env.API_SECRET as string, {expiresIn: 60 * 60});// Expires in 1 hour
+
+    res.status(200).json({'token': token});
+})
+
 router.get("/budgets", (req, res) => {
     dbBudget.fetch().then(value => {
         res.status(200).json(value.items);
@@ -127,8 +180,7 @@ router.post("/categories", (req, res) => {
 
     const validInfo = validateCategoryPost(category);
     if(validInfo.reason !== undefined){
-        const response: ErrorResponse = {reason: validInfo.reason, message: "Could not create new category"};
-        res.status(400).json(response);
+        res.status(400).json(generateErrorResponse(validInfo.reason, "Could not create new category"));
     }
 
     category.id = randomString.generate(RANDOM_ID_LENGTH);
@@ -137,8 +189,7 @@ router.post("/categories", (req, res) => {
 
         if(value === null || value === undefined){
 
-            const response: ErrorResponse = {reason: reasons.notFound, message: "The default budget could not be found"};
-            res.status(404).json(response);
+            res.status(404).json(generateErrorResponse(reasons.notFound, "The default budget could not be found"));
 
         } else {
 
@@ -167,8 +218,7 @@ router.post("/affectations", (req, res) => {
         });
 
         if(correspondingCategory === undefined){
-            const errorResponse: ErrorResponse = {reason: reasons.invalidCategory, message: "The category could not be found"};
-            res.status(400).json(errorResponse);
+            res.status(400).json(generateErrorResponse(reasons.invalidCategory, "The category id is not valid"));
         } else {
             // Update the amount in the corresponding category
             correspondingCategory.amount += monthlyAffectation.affectation.amount;
@@ -212,8 +262,7 @@ router.post("/transactions", (req, res) => {
     dbTransaction.put(input).then(value => {
         res.status(201).json(value);
     }, err => {
-        Logger.error("Error when creating transaction : "+err);
-        res.status(500).json('{"error":"Could not create transaction"}');
+        res.status(500).json(err);
     });
 });
 
