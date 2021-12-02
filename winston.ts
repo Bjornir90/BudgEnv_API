@@ -1,4 +1,8 @@
 import winston from "winston";
+import DetaTransport from "./deta_transport";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const levels = {
     error: 0,
@@ -17,10 +21,6 @@ const levels = {
     return isDevelopment() ? 'debug' : 'warn'
   }
 
-  const format = () => {
-    return isDevelopment() ? winston.format.printf((info: any) => `${info.timestamp} ${info.level}: ${info.message}`) : winston.format.json();
-  }
-
   const colors = {
     error: 'red',
     warn: 'yellow',
@@ -31,21 +31,28 @@ const levels = {
 
   winston.addColors(colors)
 
-  const combinedFormat = winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-    winston.format.colorize({ all: true }),
-    format(),
+  const consoleCombinedFormat = winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.colorize(),
+    winston.format.printf((info: any) => {
+      return `${info.timestamp} ${info.level} : ${info.message}`;
+    })
+  )
+
+  const detaCombinedFormat = winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.json()
   )
 
   const transports = [
-    new winston.transports.Console(),
+    new winston.transports.Console({format: consoleCombinedFormat}),
+    new DetaTransport({project_key: process.env.DETA_PROJECT_KEY as string, base_name: process.env.DETA_LOG_BASE as string, level: "error", format: detaCombinedFormat})
   ]
 
   const Logger: any = winston.createLogger({
     level: level(),
     levels,
-    format: format(),
-    transports,
+    transports
   })
 
 export default Logger;

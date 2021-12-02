@@ -17,7 +17,7 @@ const deta = Deta(process.env.DETA_PROJECT_KEY);
 let dbBudget: Base;
 let dbTransaction: Base;
 let dbAffectation: Base;
-if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined){
+if(process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined && process.env.DETA_LOG_BASE !== undefined){
     dbBudget = deta.Base(process.env.DETA_BUDGET_BASE);
     dbTransaction = deta.Base(process.env.DETA_TRANSACTION_BASE);
     dbAffectation = deta.Base(process.env.DETA_AFFECTATION_BASE);
@@ -145,6 +145,7 @@ router.post("/token", (req, res) => {
     const username = req.body.username;
 
     if(username !== process.env.API_USERNAME || pass !== process.env.API_PASSWORD){
+        Logger.error("Invalid login was provided");
         res.status(403).json(generateErrorResponse(reasons.invalidLogin, "Username or password is not valid"));
         return;
     }
