@@ -52,6 +52,7 @@ type Category = {
     amount: number;// Amount of money present in the category (affected - spent)
     name: string;
     goal?: Goal;
+    note: string | null;
     id: string;// Not the id in base, used to reference this category in transactions and affectations
 };
 
