@@ -138,7 +138,7 @@ router.use((req, res, next) => {
 
     if(authHeader){
         try{
-            jwt.verify(authHeader, process.env.API_SECRET as string); // Presence of env variable checked at startup
+            jwt.verify(authHeader.split(" ")[1], process.env.API_SECRET as string); // Presence of env variable checked at startup
             next();
             return;
         } catch (err) {
