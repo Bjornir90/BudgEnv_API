@@ -63,6 +63,7 @@ type Budget = {
 
 type Transaction = {
     date: string;
+    comparableDate: number;
     amount: number;// Amount in cents
     memo: string;
     payee: string;
@@ -122,34 +123,36 @@ function validateMonthDate(date: string): boolean{
     return pattern.test(date);
 }
 
-router.use((req, res, next) => {
-    res.setHeader('Content-Type', 'application/json');
+function getComparableDate(date: string): number{
+    return parseInt(date.replace(new RegExp("-", "g"), ""), 10);
+}
 
-    const authHeader = req.headers.authorization;
+if(process.env.NODE_ENV === "production"){
 
-    if(process.env.NODE_ENV === "development"){
-        next();
-        return;
-    }
+    router.use((req, res, next) => {
+        res.setHeader('Content-Type', 'application/json');
 
-    if(req.path === "/token" || req.path === "/token/" || req.method === "OPTIONS"){// Accepts requests even without a token
-        next();
-        return;
-    }
+        const authHeader = req.headers.authorization;
 
-    if(authHeader){
-        try{
-            jwt.verify(authHeader.split(" ")[1], process.env.API_SECRET as string); // Presence of env variable checked at startup
+        if(req.path === "/token" || req.path === "/token/" || req.method === "OPTIONS"){// Accepts requests even without a token
             next();
             return;
-        } catch (err) {
-            Logger.error("Error while verifying token");
-            Logger.error(JSON.stringify(err));
-            res.status(403).json(generateErrorResponse(reasons.invalidToken, "Token is not valid"));
-            return;
         }
-    }
-});
+
+        if(authHeader){
+            try{
+                jwt.verify(authHeader.split(" ")[1], process.env.API_SECRET as string); // Presence of env variable checked at startup
+                next();
+                return;
+            } catch (err) {
+                Logger.error("Error while verifying token");
+                Logger.error(JSON.stringify(err));
+                res.status(403).json(generateErrorResponse(reasons.invalidToken, "Token is not valid"));
+                return;
+            }
+        }
+    });
+}
 
 router.post("/token", (req, res) => {
     const pass = req.body.password;
@@ -263,21 +266,48 @@ router.post("/affectations", (req, res) => {
     });
 });
 
-router.get("/transactions/:id", (req, res) => {
-    const id: string = req.params.id;
-
-    dbTransaction.get(id).then(value => {
-        res.status(200).json(value);
-    });
-});
-
 router.get("/transactions/range", (req, res) => {
 
     const startDate: string = req.query.start_date as string;
     const endDate: string = req.query.end_date as string;
 
-    dbTransaction.fetch({"date?r": [startDate, endDate]}, {limit: 100}).then(value => {
+    Logger.debug("Dates range :");
+    Logger.debug(startDate);
+    Logger.debug(endDate);
+
+    if(!validateDayDate(startDate)){
+        res.status(400).json(generateErrorResponse(reasons.badDateFormat, "The startDate isn't formatted as YYYY-MM-DD"));
+        return;
+    }
+    if(!validateDayDate(endDate)){
+        res.status(400).json(generateErrorResponse(reasons.badDateFormat, "The endDate isn't formatted as YYYY-MM-DD"));
+        return;
+    }
+
+    dbTransaction.fetch({"comparableDate?r": [getComparableDate(startDate), getComparableDate(endDate)]}, {limit: 100}).then(value => {
+        Logger.info("Transactions returned "+value.count+"/100");
+        if(value.count === 0){
+            res.status(404).json(generateErrorResponse(reasons.notFound, "No transactions found for this range"));
+            return;
+        }
         res.status(200).json(value.items);
+    }, err => {
+        res.status(500).json(err);
+    });
+});
+
+router.get("/transactions", (req, res) => {
+    const id: string = req.query.id as string;
+
+    if(id === undefined || id === null){
+        res.status(400).json(generateErrorResponse(reasons.missingId, "The id is required"));
+    }
+
+    dbTransaction.get(id).then(value => {
+        if(value === null){
+            res.status(404).json(generateErrorResponse(reasons.notFound, "No transactions found for this id"));
+        }
+        res.status(200).json(value);
     });
 });
 
@@ -287,6 +317,13 @@ router.get("/transactions/range", (req, res) => {
  */
 router.post("/transactions", (req, res) => {
     const input = req.body as Transaction;
+
+    if(!validateDayDate(input.date)){
+        res.status(400).json(generateErrorResponse(reasons.badDateFormat, "The date isn't formatted as YYYY-MM-DD"));
+        return;
+    }
+
+    input.comparableDate = getComparableDate(input.date);
 
     dbTransaction.put(input).then(value => {
         res.status(201).json(value);
