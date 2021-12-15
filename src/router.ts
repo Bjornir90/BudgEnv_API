@@ -6,6 +6,7 @@ import Logger from "./winston";
 import reasons from "./error_reason";
 import randomString from "randomstring";
 import jwt from "jsonwebtoken";
+import { Category, ValidationInfo, GoalType, Budget, ErrorResponse, MonthlyAffectation, Transaction } from "./common";
 
 dotenv.config();
 
@@ -34,61 +35,6 @@ if(process.env.API_SECRET === undefined){
 
 
 const router: Router = express.Router();
-
-enum GoalType {
-    SaveByDate = "SAVEBYDATE",
-    SaveAmount = "SAVEAMOUNT",
-    SaveMonthly = "SAVEMONTHLY",
-    SpendMonthly = "SPENDMONTHLY"
-}
-
-type Goal = {
-    amount: number;
-    date?: string;
-    goalType: GoalType;
-}
-
-type Category = {
-    amount: number;// Amount of money present in the category (affected - spent)
-    name: string;
-    goal?: Goal;
-    note: string | null;
-    id: string;// Not the id in base, used to reference this category in transactions and affectations
-};
-
-type Budget = {
-    categories: [Category];
-    key: string;
-};
-
-type Transaction = {
-    date: string;
-    comparableDate: number;
-    amount: number;// Amount in cents
-    memo: string;
-    payee: string;
-    categoryId: string;
-    key: string; // The id assigned by Deta base
-};
-
-type Affectation = {
-    categoryId: string;
-    amount: number;
-}
-
-type MonthlyAffectation = {
-    date: string;
-    affectation: Affectation;
-}
-
-type ValidationInfo = {
-    reason?: string;
-}
-
-type ErrorResponse = {
-    reason: string;
-    message: string;
-}
 
 function validateCategoryPost (category : Category): ValidationInfo {
     if(category.name.length > MAX_LENGTH_CATEGORY_NAME) return {reason: reasons.categoryNameTooLong};
