@@ -26,12 +26,12 @@ export type Budget = {
 
 export type Transaction = {
     date: string;
-    comparableDate: number;
+    comparableDate?: number;
     amount: number;// Amount in cents
     memo: string;
     payee: string;
     categoryId: string;
-    key: string; // The id assigned by Deta base
+    key?: string; // The id assigned by Deta base
 };
 
 export type Affectation = {
