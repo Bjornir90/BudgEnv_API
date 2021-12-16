@@ -77,6 +77,12 @@ if (process.env.NODE_ENV === "production") {
 
     router.use((req, res, next) => {
         res.setHeader('Content-Type', 'application/json');
+        res.setHeader("Access-Control-Allow-Origin", "https://wv5y8g.deta.dev");
+        res.setHeader(
+            "Access-Control-Allow-Methods",
+            "OPTIONS, GET, POST, PUT, PATCH, DELETE"
+        );
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
         const authHeader = req.headers.authorization;
 
@@ -110,7 +116,7 @@ router.post("/token", (req, res) => {
         return;
     }
 
-    const token = jwt.sign({ 'access': 'granted' }, process.env.API_SECRET as string, { expiresIn: 60 * 60 });// Expires in 1 hour
+    const token = jwt.sign({ 'access': 'granted' }, process.env.API_SECRET as string, { expiresIn: 60 * 60 * 24 * 7 });// Expires in 1 week
 
     res.status(200).json({ 'token': token });
 })
