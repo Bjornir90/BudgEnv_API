@@ -13,8 +13,11 @@ dotenv.config();
 const MAX_LENGTH_CATEGORY_NAME = 100;
 const DEFAULT_BUDGET = "DEFAULT";
 const RANDOM_ID_LENGTH = 24;
+const AUTHORIZED_DOMAINS = ["https://budgenv.deta.dev", "https://wv5y8g.deta.dev"];
 
 const deta = Deta(process.env.DETA_PROJECT_KEY);
+
+
 let dbBudget: Base;
 let dbTransaction: Base;
 let dbAffectation: Base;
@@ -76,8 +79,13 @@ function getComparableDate(date: string): number {
 if (process.env.NODE_ENV === "production") {
 
     router.use((req, res, next) => {
+        const originHeader = req.headers.origin;
+
+        if(originHeader !== undefined && AUTHORIZED_DOMAINS.includes(originHeader)){
+            res.setHeader("Access-Control-Allow-Origin", originHeader);
+        }
+
         res.setHeader('Content-Type', 'application/json');
-        res.setHeader("Access-Control-Allow-Origin", "https://wv5y8g.deta.dev");
         res.setHeader(
             "Access-Control-Allow-Methods",
             "OPTIONS, GET, POST, PUT, PATCH, DELETE"
