@@ -272,6 +272,25 @@ router.get("/transactions", (req, res) => {
     });
 });
 
+router.get("/transactions/last/:number", (req, res) => {
+    const numberOfItemsToLoad = parseInt(req.params.number, 10);
+
+    dbTransaction.fetch({}, { limit: numberOfItemsToLoad}).then(value => {
+
+        Logger.info("Retrieved " + value.count + " transactions out of the " + numberOfItemsToLoad + "requested");
+
+        if (value.count === 0) {
+            res.status(404).json(generateErrorResponse(reasons.notFound, "No transactions found"));
+            return;
+        }
+
+        res.status(200).json(value.items);
+
+    }, err => {
+        res.status(500).json(err);
+    });
+});
+
 /*
     Create a new transaction
     Transaction in the body
