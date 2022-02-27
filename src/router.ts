@@ -125,7 +125,6 @@ router.get("/budgets", (req, res) => {
 router.get("/budgets/:budgetId", (req, res) => {
     dbBudget.get(req.params.budgetId).then(value => {
         res.status(200).json(value);
-        Logger.debug(`${req.params.budgetId} budget ${value}`);
     }, err => {
         res.status(500).json(err);
     })
@@ -148,19 +147,25 @@ router.post("/budgets/:budgetId/categories", (req, res) => {
         res.status(400).json(generateErrorResponse(validInfo.reason, "Could not create new category"));
     }
 
+    category.budgetId = req.params.budgetId;
+
     dbCategory.put(category).then(value => {
-        const createdCategory = value as Category;
-        dbBudget.update({
-            "categoriesId": dbBudget.util.append(createdCategory.key)
-        }, req.params.budgetId).then(budgetValue => {
-            res.status(201).json(value);
-        }, err => {
-            res.status(500).json(generateErrorResponse(reasons.unknown, "Could not update budget"));
-        });
+        res.status(201).json(value);
     }, err => {
-        res.status(500).json(generateErrorResponse(reasons.unknown, "Could not create category"));
+        res.status(500).json(generateErrorResponse(reasons.unknown, "Could not create new category"));
     });
 
+});
+
+router.get("/budgets/:budgetId/categories", (req, res) => {
+    dbCategory.fetch({"budgetId": req.params.budgetId}, { limit: 100 }).then(value => {
+        if(value.count === 0){
+            res.status(404).json(generateErrorResponse(reasons.notFound, "No categories were found for this budget"));
+        }
+        res.status(200).json(value.items);
+    }, err => {
+        res.status(500).json(generateErrorResponse(reasons.unknown, err));
+    });
 });
 
 router.get("/budgets/:budgetId/affectations/month/:date", (req, res) => {
@@ -230,8 +235,8 @@ router.get("/budgets/:budgetId/transactions/range", (req, res) => {
     });
 });
 
-router.get("/transactions", (req, res) => {
-    const id: string = req.query.id as string;
+router.get("/transactions/:id", (req, res) => {
+    const id: string = req.params.id as string;
 
     if (id === undefined || id === null) {
         res.status(400).json(generateErrorResponse(reasons.missingId, "The id is required"));

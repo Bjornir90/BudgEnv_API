@@ -16,13 +16,14 @@ export type Category = {
     name: string;
     goal?: Goal;
     note: string | null;
+    budgetId: string;
     key: string;// Used to reference this category in transactions and affectations
 };
 
 export type Budget = {
-    categoriesId: [string];
     unaffectedAmount: number;
     key: string;
+    name: string;
 };
 
 export type Transaction = {
