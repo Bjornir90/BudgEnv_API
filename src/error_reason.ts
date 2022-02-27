@@ -6,7 +6,8 @@ const reasons = {
     invalidToken: "TOKEN_NOT_VALID",
     invalidLogin: "LOGIN_NOT_VALID",
     badDateFormat: "DATE_FORMAT_NOT_VALID",
-    missingId: "ID_MISSING"
+    missingId: "ID_MISSING",
+    unknown: "UNKNOWN"
 }
 
 export default reasons;

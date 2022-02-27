@@ -16,11 +16,12 @@ export type Category = {
     name: string;
     goal?: Goal;
     note: string | null;
-    id: string;// Not the id in base, used to reference this category in transactions and affectations
+    key: string;// Used to reference this category in transactions and affectations
 };
 
 export type Budget = {
-    categories: [Category];
+    categoriesId: [string];
+    unaffectedAmount: number;
     key: string;
 };
 
@@ -31,6 +32,7 @@ export type Transaction = {
     memo: string;
     payee: string;
     categoryId: string;
+    budgetId: string;
     key?: string; // The id assigned by Deta base
 };
 
@@ -41,6 +43,7 @@ export type Affectation = {
 
 export type MonthlyAffectation = {
     date: string;
+    budgetId: string;
     affectation: Affectation;
 };
 

@@ -1,6 +1,6 @@
 {
   "name": "budgenv_api",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "API to serve budgeting data",
   "main": "index.js",
   "dependencies": {

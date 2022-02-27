@@ -11,8 +11,6 @@ import { Category, ValidationInfo, GoalType, Budget, ErrorResponse, MonthlyAffec
 dotenv.config();
 
 const MAX_LENGTH_CATEGORY_NAME = 100;
-const DEFAULT_BUDGET = "DEFAULT";
-const RANDOM_ID_LENGTH = 24;
 const AUTHORIZED_DOMAINS = ["https://budgenv.deta.dev", "https://wv5y8g.deta.dev"];
 
 const deta = Deta(process.env.DETA_PROJECT_KEY);
@@ -21,10 +19,12 @@ const deta = Deta(process.env.DETA_PROJECT_KEY);
 let dbBudget: Base;
 let dbTransaction: Base;
 let dbAffectation: Base;
-if (process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined && process.env.DETA_LOG_BASE !== undefined) {
+let dbCategory: Base;
+if (process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined && process.env.DETA_LOG_BASE !== undefined && process.env.DETA_CATEGORY_BASE !== undefined) {
     dbBudget = deta.Base(process.env.DETA_BUDGET_BASE);
     dbTransaction = deta.Base(process.env.DETA_TRANSACTION_BASE);
     dbAffectation = deta.Base(process.env.DETA_AFFECTATION_BASE);
+    dbCategory = deta.Base(process.env.DETA_CATEGORY_BASE);
 } else {
     Logger.error("Databases not defined in environment");
     process.exit(1);
@@ -43,19 +43,6 @@ function validateCategoryPost(category: Category): ValidationInfo {
     if (category.name.length > MAX_LENGTH_CATEGORY_NAME) return { reason: reasons.categoryNameTooLong };
     if (category.goal?.goalType === GoalType.SaveByDate && category.goal?.date === null) return { reason: reasons.missingDate };
     return { reason: undefined };
-}
-
-function putCategoryInBudget(category: Category, budget: Budget): Budget {
-    const categories = budget.categories;
-
-    const existingCategoryIndex = categories.findIndex(value => value.id === category.id);
-    if (existingCategoryIndex === -1) {
-        categories.push(category);
-    } else {
-        categories.splice(existingCategoryIndex, 1, category);
-    }
-
-    return budget;
 }
 
 function generateErrorResponse(reason: string, message: string): ErrorResponse {
@@ -135,25 +122,25 @@ router.get("/budgets", (req, res) => {
     });
 });
 
-router.get("/budgets/default", (req, res) => {
-    dbBudget.get(DEFAULT_BUDGET).then(value => {
+router.get("/budgets/:budgetId", (req, res) => {
+    dbBudget.get(req.params.budgetId).then(value => {
         res.status(200).json(value);
-        Logger.debug(`Default budget ${value}`);
+        Logger.debug(`${req.params.budgetId} budget ${value}`);
     }, err => {
         res.status(500).json(err);
     })
 });
 
 // TODO validation
-router.post("/budgets/default", (req, res) => {
-    dbBudget.put(req.body, DEFAULT_BUDGET).then(value => {
-        res.status(200).json(value);
+router.post("/budgets/:budgetId", (req, res) => {
+    dbBudget.put(req.body, req.params.budgetId).then(value => {
+        res.status(201).json(value);
     }, err => {
         res.status(500).json(err);
     });
 });
 
-router.post("/categories", (req, res) => {
+router.post("/budgets/:budgetId/categories", (req, res) => {
     const category = req.body as Category;
 
     const validInfo = validateCategoryPost(category);
@@ -161,39 +148,29 @@ router.post("/categories", (req, res) => {
         res.status(400).json(generateErrorResponse(validInfo.reason, "Could not create new category"));
     }
 
-    category.id = randomString.generate(RANDOM_ID_LENGTH);
-
-    dbBudget.get(DEFAULT_BUDGET).then(value => {
-
-        if (value === null || value === undefined) {
-
-            res.status(404).json(generateErrorResponse(reasons.notFound, "The default budget could not be found"));
-
-        } else {
-
-            const budget = value as Budget;
-            putCategoryInBudget(category, budget)
-
-            // The budget object has a key, which means it will replace the one in the base
-            dbBudget.put(budget).then(putResponse => {
-                res.status(201).json(putResponse);
-            }, err => {
-                res.status(500).json(err);
-            });
-        }
-
+    dbCategory.put(category).then(value => {
+        const createdCategory = value as Category;
+        dbBudget.update({
+            "categoriesId": dbBudget.util.append(createdCategory.key)
+        }, req.params.budgetId).then(budgetValue => {
+            res.status(201).json(value);
+        }, err => {
+            res.status(500).json(generateErrorResponse(reasons.unknown, "Could not update budget"));
+        });
+    }, err => {
+        res.status(500).json(generateErrorResponse(reasons.unknown, "Could not create category"));
     });
 
 });
 
-router.get("/affectations/month/:date", (req, res) => {
+router.get("/budgets/:budgetId/affectations/month/:date", (req, res) => {
     const date = req.params.date;
     if (!validateMonthDate(date)) {
         res.status(400).json(generateErrorResponse(reasons.badDateFormat, "The date isn't formatted as YYYY-MM"));
         return;
     }
 
-    dbAffectation.fetch({ date }).then(value => {
+    dbAffectation.fetch({ date, "budgetId": req.params.budgetId}).then(value => {
         res.status(200).json(value.items);
     }, err => {
         res.status(404).json(err);
@@ -201,33 +178,25 @@ router.get("/affectations/month/:date", (req, res) => {
 
 });
 
-router.post("/affectations", (req, res) => {
+router.post("/budgets/:budgetId/affectations", (req, res) => {
     const monthlyAffectation = req.body as MonthlyAffectation;
 
-    dbBudget.get(DEFAULT_BUDGET).then(budgetValue => {
-        const budget = budgetValue as Budget;
-        const correspondingCategory = budget.categories.find(value => {
-            return value.id === monthlyAffectation.affectation.categoryId;
-        });
+    monthlyAffectation.budgetId = req.params.budgetId;
 
-        if (correspondingCategory === undefined) {
-            res.status(400).json(generateErrorResponse(reasons.invalidCategory, "The category id is not valid"));
-        } else {
-            // Update the amount in the corresponding category
-            correspondingCategory.amount += monthlyAffectation.affectation.amount;
-            putCategoryInBudget(correspondingCategory, budget);
-            dbBudget.put(budget);
+    dbAffectation.put(monthlyAffectation).then(value => {
 
-            dbAffectation.put(monthlyAffectation).then(affectationValue => {
-                res.status(201).json(affectationValue);
-            }, err => {
-                res.status(500).json(err);
-            });
-        }
+        // TODO error management, rollback as needed
+        dbBudget.update({"unaffectedAmount": dbBudget.util.increment(-monthlyAffectation.affectation.amount)}, req.params.budgetId);
+
+        dbCategory.update({"amount": dbCategory.util.increment(monthlyAffectation.affectation.amount)}, monthlyAffectation.affectation.categoryId);
+
+        res.status(201).json(value);
+    }, err => {
+        res.status(500).json(generateErrorResponse(reasons.unknown, err));
     });
 });
 
-router.get("/transactions/range", (req, res) => {
+router.get("/budgets/:budgetId/transactions/range", (req, res) => {
 
     const startDate: string = req.query.start_date as string;
     const endDate: string = req.query.end_date as string;
@@ -245,7 +214,11 @@ router.get("/transactions/range", (req, res) => {
         return;
     }
 
-    dbTransaction.fetch({ "comparableDate?r": [getComparableDate(startDate), getComparableDate(endDate)] }, { limit: 100 }).then(value => {
+    dbTransaction.fetch({
+            "comparableDate?r": [getComparableDate(startDate), getComparableDate(endDate)],
+            "budgetId": req.params.budgetId
+        },
+        { limit: 100 }).then(value => {
         Logger.info("Transactions returned " + value.count + "/100");
         if (value.count === 0) {
             res.status(404).json(generateErrorResponse(reasons.notFound, "No transactions found for this range"));
@@ -272,10 +245,10 @@ router.get("/transactions", (req, res) => {
     });
 });
 
-router.get("/transactions/last/:number", (req, res) => {
+router.get("/budgets/:budgetId/transactions/last/:number", (req, res) => {
     const numberOfItemsToLoad = parseInt(req.params.number, 10);
 
-    dbTransaction.fetch({}, { limit: numberOfItemsToLoad}).then(value => {
+    dbTransaction.fetch({"budgetId": req.params.budgetId}, { limit: numberOfItemsToLoad}).then(value => {
 
         Logger.info("Retrieved " + value.count + " transactions out of the " + numberOfItemsToLoad + "requested");
 
