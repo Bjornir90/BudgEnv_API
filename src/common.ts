@@ -11,6 +11,13 @@ export type Goal = {
     goalType: GoalType;
 };
 
+export type User = {
+    defaultBudgetKey: string;
+    allowedBudgetKeys: string [];
+    name: string;
+    password: string;
+}
+
 export type Category = {
     amount: number;// Amount of money present in the category (affected - spent)
     name: string;

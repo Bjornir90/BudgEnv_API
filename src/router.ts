@@ -6,7 +6,8 @@ import Logger from "./winston";
 import reasons from "./error_reason";
 import randomString from "randomstring";
 import jwt from "jsonwebtoken";
-import { Category, ValidationInfo, GoalType, Budget, ErrorResponse, MonthlyAffectation, Transaction } from "./common";
+import argon2 from "argon2";
+import { Category, ValidationInfo, GoalType, Budget, ErrorResponse, MonthlyAffectation, Transaction, User } from "./common";
 
 dotenv.config();
 
@@ -20,11 +21,13 @@ let dbBudget: Base;
 let dbTransaction: Base;
 let dbAffectation: Base;
 let dbCategory: Base;
-if (process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined && process.env.DETA_LOG_BASE !== undefined && process.env.DETA_CATEGORY_BASE !== undefined) {
+let dbUser: Base;
+if (process.env.DETA_BUDGET_BASE !== undefined && process.env.DETA_TRANSACTION_BASE !== undefined && process.env.DETA_AFFECTATION_BASE !== undefined && process.env.DETA_LOG_BASE !== undefined && process.env.DETA_CATEGORY_BASE !== undefined && process.env.DETA_USER_BASE !== undefined) {
     dbBudget = deta.Base(process.env.DETA_BUDGET_BASE);
     dbTransaction = deta.Base(process.env.DETA_TRANSACTION_BASE);
     dbAffectation = deta.Base(process.env.DETA_AFFECTATION_BASE);
     dbCategory = deta.Base(process.env.DETA_CATEGORY_BASE);
+    dbUser = deta.Base(process.env.DETA_USER_BASE);
 } else {
     Logger.error("Databases not defined in environment");
     process.exit(1);
@@ -101,20 +104,46 @@ if (process.env.NODE_ENV === "production") {
     });
 }
 
-router.post("/token", (req, res) => {
+router.post("/tokens", (req, res) => {
     const pass = req.body.password;
     const username = req.body.username;
 
-    if (username !== process.env.API_USERNAME || pass !== process.env.API_PASSWORD) {
-        Logger.error("Invalid login was provided");
-        res.status(401).json(generateErrorResponse(reasons.invalidLogin, "Username or password is not valid"));
-        return;
-    }
+    dbUser.fetch().then(value => {
+        const userInBase = (value.items.find((user) => user.name === username) as User);
 
-    const token = jwt.sign({ 'access': 'granted' }, process.env.API_SECRET as string, { expiresIn: 60 * 60 * 24 * 7 });// Expires in 1 week
+        if(userInBase === undefined){
+            res.status(401).json(generateErrorResponse(reasons.invalidLogin, "Username is not valid"));
+            return;
+        }
 
-    res.status(200).json({ 'token': token });
-})
+        argon2.verify(userInBase.password, pass).then(isValid => {
+            if(isValid){
+                const token = jwt.sign({ 'authorizedBudgetKeys': userInBase.allowedBudgetKeys }, process.env.API_SECRET as string, { expiresIn: 60 * 60 * 24 * 7 });// Expires in 1 week
+
+                res.status(200).json({ 'token': token });
+            } else {
+                res.status(401).json(generateErrorResponse(reasons.invalidLogin, "Password is not valid"));
+            }
+        }, error => {
+            res.status(500).json(generateErrorResponse(reasons.unknown, error));
+        });
+    }, err => {
+        res.status(500).json(generateErrorResponse(reasons.unknown, err));
+    });
+});
+
+router.post("/users", (req, res) => {
+    const user = req.body as User;
+    argon2.hash(user.password).then(hash => {
+        user.password = hash;
+        dbUser.put(user).then(value => {
+            res.status(201).json(value);
+        }, err => {
+            res.status(500).json(generateErrorResponse(reasons.unknown, err));
+        });
+    })
+
+});
 
 router.get("/budgets", (req, res) => {
     dbBudget.fetch().then(value => {
