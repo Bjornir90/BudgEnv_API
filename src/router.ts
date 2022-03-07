@@ -145,6 +145,18 @@ router.post("/users", (req, res) => {
 
 });
 
+router.get("/users/:name", (req, res) => {
+    dbUser.fetch({"name": req.params.name}).then(value => {
+        if(value.count === 0){
+            res.status(404).json(generateErrorResponse(reasons.notFound, "User "+req.params.name+" not found"));
+            return;
+        }
+        res.status(200).json(value.items[0]);
+    }, err => {
+        res.status(500).json(generateErrorResponse(reasons.unknown, "Uknown error when retrieving user"));
+    });
+});
+
 router.get("/budgets", (req, res) => {
     dbBudget.fetch().then(value => {
         res.status(200).json(value.items);
