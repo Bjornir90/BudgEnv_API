@@ -84,7 +84,7 @@ if (process.env.NODE_ENV === "production") {
 
         const authHeader = req.headers.authorization;
 
-        if (req.path === "/token" || req.path === "/token/" || req.method === "OPTIONS") {// Accepts requests even without a token
+        if (req.path === "/tokens" || req.path === "/tokens/" || req.method === "OPTIONS") {// Accepts requests even without a token
             next();
             return;
         }
